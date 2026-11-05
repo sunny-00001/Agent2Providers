@@ -222,16 +222,31 @@ function checkZip(path, manifest, target) {
 
   // ⑥ 说明数据只含本包申报的家（`pack.mjs` 会过滤，这里复核结果）
   if (names.has('ui/provider-docs.json')) {
+    let docsRaw = null
     try {
-      const docs = JSON.parse(findEntryData(buffer, entries, 'ui/provider-docs.json').toString('utf8'))
+      docsRaw = findEntryData(buffer, entries, 'ui/provider-docs.json').toString('utf8')
+      const docs = JSON.parse(docsRaw)
       const documented = Object.keys(docs.providers || {})
       const declaredIds = providers.map((provider) => provider.id)
       const strays = documented.filter((id) => !declaredIds.includes(id))
       check(strays.length === 0, '说明数据只含本包的家',
         strays.length ? `多出：${strays.join(', ')}` : documented.join(', '))
       check(docs.schema === 1, '说明数据 schema 正确', `${docs.schema}`)
+      // 申报的家**都要**有说明（少了会让说明页那一行空白）
+      const undocumented = declaredIds.filter((id) => !documented.includes(id))
+      check(undocumented.length === 0, '每个申报的家都有说明',
+        undocumented.length ? `缺失：${undocumented.join(', ')}` : undefined)
     } catch (error) {
       check(false, '说明数据可解析', error.message)
+    }
+    // ── 重复键检查（JSON.parse 抓不到 —— 后者会静默覆盖前者）────────
+    //
+    // 这条是补上来的：手写插入条目时把两家写成了同一个键名，`JSON.parse`
+    // 只留下最后一个 ⇒ 说明页里少一家，而**任何解析型检查都不会报错**。
+    if (docsRaw !== null) {
+      const duplicated = findDuplicateProviderKeys(docsRaw)
+      check(duplicated.length === 0, '说明数据里没有重复键',
+        duplicated.length ? `重复：${duplicated.join(', ')}` : undefined)
     }
   }
 
@@ -264,6 +279,70 @@ function findEntryData(buffer, entries, name) {
     return buffer.slice(start, start + size)
   }
   throw new Error(`找不到 ${name} 的本地头`)
+}
+
+/**
+ * 找 `providers` 这一层上重复出现的键 —— `JSON.parse` **抓不到**这件事
+ * （同名键后者覆盖前者，解析结果完全合法）。
+ *
+ * ── 为什么不能按「缩进深度分组」判重（试过，误报一堆）──────────
+ * 朴素做法是「同一缩进层 + 同名键出现两次即重复」，但这份文件里
+ * `capabilities` / `notes` / `zh-CN` 这些键在**每一家**下面都会出现 ——
+ * 那完全合法。判重必须限定在**同一层**，而「同一层」需要知道父键是谁。
+ *
+ * ── 所以这里只扫 `providers` 的直接子键 ──────────────────────
+ * 做法：定位 `"providers": {`，从它开始按**大括号深度**扫描，只在
+ * 「深度正好比 providers 内的第一层多 1」时收键名。depth 用逐字符计数
+ * （字符串内的括号要跳过），不然 `"notes": ["…{…}"]` 这类正文会把深度带偏。
+ *
+ * 为什么值得写这么一段：手写插入条目时最容易犯的错就是把两家写成同一个
+ * 键名 —— 结果是说明页里少一家，而所有解析型检查（包括网关自己那份）都
+ * 不会报错。本轮就是这么踩到的（`minimax` 写了两遍，`minimax-intl` 消失）。
+ */
+function findDuplicateProviderKeys(text) {
+  const marker = '"providers"'
+  const at = text.indexOf(marker)
+  if (at < 0) return []
+  const open = text.indexOf('{', at)
+  if (open < 0) return []
+
+  // 逐字符扫，维护「是否在字符串内」。只在 providers 一级（innerDepth === 0）
+  // 收键名，且仅当这个 key 后面紧跟 `:`（排除数组里的字符串值）。
+  const keys = []
+  let depth = 0        // 从 providers 的 { 之后开始计
+  let inString = false
+  for (let index = open + 1; index < text.length; index += 1) {
+    const ch = text[index]
+    if (inString) {
+      if (ch === '\\') { index += 1; continue }
+      if (ch === '"') inString = false
+      continue
+    }
+    if (ch === '"') {
+      const end = text.indexOf('"', index + 1)
+      if (end < 0) break
+      // 只有一级、且后面紧跟冒号的才是「键」
+      if (depth === 0 && /^\s*:/.test(text.slice(end + 1))) {
+        keys.push(text.slice(index + 1, end))
+      }
+      index = end
+      inString = true
+      continue
+    }
+    if (ch === '{' || ch === '[') { depth += 1; continue }
+    if (ch === '}' || ch === ']') {
+      depth -= 1
+      if (depth < 0) break     // providers 收尾
+      continue
+    }
+  }
+  const seen = new Set()
+  const duplicated = new Set()
+  for (const key of keys) {
+    if (seen.has(key)) duplicated.add(key)
+    else seen.add(key)
+  }
+  return [...duplicated]
 }
 
 main()

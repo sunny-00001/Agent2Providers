@@ -1,72 +1,106 @@
 name: release
 
-# 推 `v*` tag 时把发版交给独立构建仓库（`Agent2Builder/agent2api-providers-releases`）。
+# 本仓库（自建追加包）的构建与产物上传。
 #
-# ── 主仓库为什么不再自己构建 ────────────────────────────────
-# 插件是五平台矩阵（Windows + 两个 macOS + 两个 Linux），跑一次是实打实的
-# 重负载；而 tag 是发版动作、频率不可控。把「打一个版本标签」变成「自动兑换
-# 五次虚拟机开机」，最坏情况下会被判定为 Actions 滥用。所以编译整体搬到
-# 专用构建账号下的仓库，主仓库这条工作流只做一件事：发一条极轻的派发请求。
+# ── 与上游官方仓库那条工作流的差别 ──────────────────────────
+# 上游的原版是「推 tag → repository_dispatch 派发到专用构建仓库
+# `Agent2Builder/agent2api-providers-releases` → 在那边编译、签名、发 Release」。
+# 那条路在本仓库走不通：派发要 `BUILDER_DISPATCH_TOKEN`（对那个构建仓库有
+# contents write 权限），而那是上游账号的 secret，fork 里没有、也不该配。
 #
-# ── 密钥在哪 ────────────────────────────────────────────────
-# 签名私钥（`AGENT2API_PLUGIN_KEY`）**只存在构建仓库的 secrets 里**，主仓库
-# 没有、也不需要。主仓库唯一要配的是 `BUILDER_DISPATCH_TOKEN`——一个对构建
-# 仓库有 contents write 权限的 token，只用来派发事件。
+# 所以这里改成本仓库**自己编**，只保留 Linux 两个目标（本包的实际用途是
+# 装进 Docker 网关；macOS / Windows 桌面端的用户应直接用上游官方包）。
+# 产物上传为 workflow artifact —— 下载不需要任何 token，只要能看到这个 run。
 #
-# ── 为什么用 repository_dispatch 而不是 workflow_call ───────
-# 跨仓库的 `workflow_call` 要求两边在同一个仓库内，跨账号只能用 dispatch。
-# 这也是 magpie（yetone/magpie → yetone/magpie-releases）的做法。
+# ── 为什么只有两个 Linux 目标 ────────────────────────────────
+# ① 本包面向容器（见 README）：`agent2api-providers-extra` 的目的是把上游官方包
+#    还没实现的家补进 Docker 网关，Linux 是唯一有意义的平台。
+# ② 每多一个平台就多一次 runner 开机，而 tag 是发版动作、频率不可控 ——
+#    上游把编译搬出主仓库就是为了避开这一点。
 #
-# ── tag 仍然照常打 ──────────────────────────────────────────
-# 它是版本标记，也是 Cargo 按 tag 引用契约库的依据（网关 `server/Cargo.toml`
-# 的 `agent2api-provider-protocol = { git = ..., tag = "v..." }`），只是它不再
-# 触发本仓库的任何编译。
+# ── 为什么用 ubuntu-22.04 ────────────────────────────────────
+# 插件跑在用户机器上，Docker 运行镜像是 `debian:bookworm-slim`（glibc 2.36）。
+# 22.04 的 glibc 是 2.35，比 bookworm 更低 —— glibc 向前兼容，所以 22.04 上
+# 编出来的包在 bookworm 容器和更新的发行版上都能跑。反过来（在 24.04 上编，
+# glibc 2.39）装进容器会报 `GLIBC_2.39 not found`，现场只显示「插件启动失败」，
+# 很难查。这条与上游构建仓库的口径一致，别改成 `ubuntu-latest`。
+#
+# ── 签名 ────────────────────────────────────────────────────
+# 本仓库**不签名**（没有官方私钥，也不该有）。网关对未签名包的处理是：
+# 允许安装、界面标黄「unsigned」、**不会被自动更新覆盖** —— 对本包来说
+# 最后一条反而是优点（它不会在你不知情时被换掉）。
 
 on:
   push:
     tags:
       - 'v*'
   workflow_dispatch:
-    inputs:
-      version:
-        description: '要发布的版本号（不带 v 前缀；对应的 tag 必须已存在）'
-        required: true
-        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
 
 jobs:
-  dispatch:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.meta.outputs.version }}
-      ref: ${{ steps.meta.outputs.ref }}
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # amd64 用原生 runner；arm64 用 GitHub 的 arm runner（不是 QEMU）。
+          # 交叉编出来的 arm64 二进制在 x64 机器上跑不起来，那就没法做
+          # 「真机启动验证」—— 而编译通过不等于能运行（缺 so、权限、路径
+          # 全在运行时才暴露）。上游构建仓库也是这么分的。
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            artifact: plugin-linux-x64
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            artifact: plugin-linux-arm64
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: 解析版本号与 ref
-        id: meta
-        env:
-          INPUT_VERSION: ${{ github.event.inputs.version }}
+      - uses: actions/checkout@v7
+
+      - name: 安装 Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: 安装 Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 缓存 Rust 依赖
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: . -> target
+
+      # ── 只编本家 ─────────────────────────────────────────────
+      # 本包的身份就是「只提供上游官方包没有的家」。用 `--no-default-features`
+      # 把几十家官方实现排除掉，理由有三条：
+      #   ① 体积：全量二进制约 15.6 MB，只留本家约 3 MB（装进容器的是它）；
+      #   ② 不重复：官方包已经提供那些家，重复打包只是把它们再编一遍；
+      #   ③ 不冲突：两个包同时声明同一个 provider id 时，网关的归属表按
+      #      「谁先装上」决定 —— 重复声明会让归属取决于安装顺序。
+      - name: 编译
+        run: cargo build --release -p agent2api-providers --no-default-features --features minimax
+
+      # 编译通过 ≠ 能运行：清单不对、路径写错都只在启动时暴露。
+      # 这一步真的把二进制拉起来，走一遍握手并**断言本家出现在清单里**。
+      - name: 验证协议（真机启动）
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            REF="$GITHUB_REF_NAME"
-            VERSION="${REF#v}"
-          else
-            VERSION="$INPUT_VERSION"
-            REF="v$VERSION"
-          fi
-          # 换行或引号会往下面的 JSON 里注入字段
-          [[ "$VERSION" =~ ^[0-9][0-9A-Za-z.+-]*$ ]] || { echo "版本号不合法: $VERSION" >&2; exit 1; }
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "ref=$REF" >> "$GITHUB_OUTPUT"
-          echo "派发构建：版本 $VERSION（ref: $REF）"
+          BIN=target/release/agent2api-providers
+          chmod +x "$BIN"
+          node scripts/verify-extra.mjs --exe "$BIN"
 
-      - name: 派发到构建仓库
-        uses: peter-evans/repository-dispatch@v3
+      - name: 打包
+        run: node scripts/pack.mjs --skip-build --target "${{ matrix.target }}"
+
+      - name: 核对包内容
+        run: node scripts/check-pack.mjs --target "${{ matrix.target }}"
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v7
         with:
-          # 对构建仓库有 contents write 权限的 token（放在主仓库 secrets 里）
-          token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
-          repository: Agent2Builder/agent2api-providers-releases
-          event-type: release
-          client-payload: '{"ref": "${{ steps.meta.outputs.ref }}", "version": "${{ steps.meta.outputs.version }}"}'
-
-      - name: 提示去哪看进度
-        run: echo "构建在 https://github.com/Agent2Builder/agent2api-providers-releases/actions"
+          name: ${{ matrix.artifact }}
+          path: dist/*.zip
+          if-no-files-found: error

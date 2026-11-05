@@ -36,7 +36,10 @@
 // 连 `unwrap` 都不允许（网关只是「尽量不写」，这里是编译期禁止）。
 // 确实需要的地方用 `guard()` 显式兜住并记日志。
 
-#[cfg(any(feature = "loomy", feature = "zcode"))]
+// Anthropic 出站转换（chat 体 → Messages 体）。三个家共用同一份实现：
+// Loomy 与 ZCode 活动套餐通道路过它，MiniMax Code 整条链路就是它
+// （见 `anthropic.rs` 的模块头与 `minimax/chat.rs`）。
+#[cfg(any(feature = "loomy", feature = "zcode", feature = "minimax"))]
 mod anthropic;
 mod beijing;
 mod catalog_backoff;

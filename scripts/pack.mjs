@@ -146,9 +146,36 @@ function collectUi(manifest) {
     seen.add(dir)
     files.push(...collectDir('ui', `ui/${dir}`))
   }
+  // 说明数据（`ui/provider-docs.json`）按**本包申报的 provider** 过滤。
+  //
+  // ── 为什么要过滤 ────────────────────────────────────────────
+  // 这份文件是给网关「插件说明」页用的（`management/provider_docs.rs` 读它），
+  // 里面的 `providers` 是一张按 provider id 索引的 map。仓库里那一份是
+  // **全量**的（官方包 30 家的说明都在一起），而包可能只提供其中几家
+  // —— 「提供商增强（自建追加包）」就是这种情况：它只有 minimax 两家，
+  // 原样带过去会让它的说明页里列出 30 家别的提供商（那几家的能力位读出来
+  // 全是空的，因为本包没有它们的 `ProviderInfo`），看起来像是包里有一堆坏家。
+  //
+  // 不过滤的场景：官方包申报了全部家 → 过滤后与原文件等价（无副作用）。
+  // schema / description 两个顶层字段原样保留（它们描述的是这个包）。
   const documentation = join(PLUGIN_DIR, 'ui', 'provider-docs.json')
   if (existsSync(documentation) && statSync(documentation).isFile()) {
-    files.push({ name: 'ui/provider-docs.json', data: readFileSync(documentation), executable: false })
+    const declared = new Set((manifest.providers || []).map((provider) => provider.id))
+    let data = readFileSync(documentation)
+    try {
+      const parsed = JSON.parse(data.toString('utf8'))
+      if (parsed && typeof parsed.providers === 'object' && parsed.providers !== null) {
+        const kept = {}
+        for (const [id, notes] of Object.entries(parsed.providers)) {
+          if (declared.has(id)) kept[id] = notes
+        }
+        parsed.providers = kept
+        data = Buffer.from(`${JSON.stringify(parsed, null, 2)}\n`, 'utf8')
+      }
+    } catch {
+      // 解析不了就原样带上：那份文件由网关侧校验（schema == 1），坏数据它自己会忽略
+    }
+    files.push({ name: 'ui/provider-docs.json', data, executable: false })
   }
   return files
 }

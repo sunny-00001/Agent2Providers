@@ -42,6 +42,10 @@ pub mod lobsterai;
 pub mod loomy;
 #[cfg(feature = "modelscope")]
 pub mod modelscope;
+/// MiniMax Code 的两个地区是两个 provider、两个实例（同一份实现按地区
+/// 参数化，见 `minimax/region.rs` 的模块头）。
+#[cfg(feature = "minimax")]
+pub mod minimax;
 #[cfg(feature = "monkeycode")]
 pub mod monkeycode;
 #[cfg(feature = "officeace")]
@@ -185,6 +189,15 @@ pub fn registry() -> Vec<BoxProvider> {
 
     #[cfg(feature = "astudio")]
     list.push(Box::new(astudio::AStudioProvider));
+
+    // MiniMax Code 的两个地区是两个 provider、两个实例（同一份实现按地区
+    // 参数化）。**加在末尾**：注册表顺序决定展示顺序与同名模型的归属，
+    // 插在中间会让存量用户的界面顺序变一下（没有功能影响，但没必要动）。
+    #[cfg(feature = "minimax")]
+    {
+        list.push(Box::new(minimax::MINIMAX_CN));
+        list.push(Box::new(minimax::MINIMAX_INTL));
+    }
 
     list
 }

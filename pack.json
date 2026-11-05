@@ -1,227 +1,25 @@
 {
-  "id": "agent2api-providers",
-  "name": "提供商增强",
-  "description": "为 Agent2API 扩展多家 AI 提供商，提供模型调用、账号登录与导入、凭证续期、模型目录、余额查询和签到等能力。具体功能以各提供商的支持情况为准。",
+  "id": "agent2api-providers-extra",
+  "name": "提供商增强（自建追加包）",
+  "description": "自建的追加提供商包：只包含上游官方包尚未实现的家（当前为 MiniMax Code 国内版 / 国际版）。与官方包并存安装，不覆盖它；id 与官方包不同，因此不受「官方配套包最低版本」校验约束。",
   "license": "AGPL-3.0",
-  "version": "3.4.1",
+  "version": "0.1.0",
   "protocol": 1,
   "providers": [
     {
-      "id": "demo",
-      "label": "示例提供商",
+      "id": "minimax",
+      "label": "MiniMax Code 国内版",
       "order": 0,
-      "default_enabled": false
+      "default_enabled": true
     },
     {
-      "id": "commandcode",
-      "label": "Command Code",
+      "id": "minimax-intl",
+      "label": "MiniMax Code 国际版",
       "order": 1,
       "default_enabled": true
-    },
-    {
-      "id": "modelscope",
-      "label": "ModelScope 国内版",
-      "order": 2,
-      "default_enabled": true
-    },
-    {
-      "id": "modelscope-intl",
-      "label": "ModelScope 国际版",
-      "order": 3,
-      "default_enabled": true
-    },
-    {
-      "id": "orcaterm",
-      "label": "OrcaTerm",
-      "order": 4,
-      "default_enabled": true
-    },
-    {
-      "id": "loomy",
-      "label": "Loomy",
-      "order": 5,
-      "default_enabled": true
-    },
-    {
-      "id": "lobsterai",
-      "label": "LobsterAI",
-      "order": 6,
-      "default_enabled": true
-    },
-    {
-      "id": "raccoon",
-      "label": "小浣熊",
-      "order": 7,
-      "default_enabled": true
-    },
-    {
-      "id": "atomcode",
-      "label": "AtomCode",
-      "order": 8,
-      "default_enabled": true
-    },
-    {
-      "id": "autoclaw",
-      "label": "AutoClaw 国内版",
-      "order": 10,
-      "default_enabled": true
-    },
-    {
-      "id": "autoclaw-intl",
-      "label": "AutoClaw 国际版",
-      "order": 11,
-      "default_enabled": true
-    },
-    {
-      "id": "officeace",
-      "label": "OfficeAce 果办",
-      "order": 12,
-      "default_enabled": true
-    },
-    {
-      "id": "zcode",
-      "label": "ZCode 国内版",
-      "order": 13,
-      "default_enabled": true
-    },
-    {
-      "id": "zcode-intl",
-      "label": "ZCode 国际版",
-      "order": 14,
-      "default_enabled": true
-    },
-    {
-      "id": "workbuddy",
-      "label": "WorkBuddy 国内版",
-      "order": 15,
-      "default_enabled": true
-    },
-    {
-      "id": "workbuddy-intl",
-      "label": "WorkBuddy 国际版",
-      "order": 16,
-      "default_enabled": true
-    },
-    {
-      "id": "cline-free",
-      "label": "Cline 免费池",
-      "order": 17,
-      "default_enabled": true
-    },
-    {
-      "id": "cline-pass",
-      "label": "Cline 订阅池",
-      "order": 18,
-      "default_enabled": true
-    },
-    {
-      "id": "kuku",
-      "label": "KukuAI 库库",
-      "order": 19,
-      "default_enabled": true
-    },
-    {
-      "id": "monkeycode",
-      "label": "MonkeyCode 国内版",
-      "order": 20,
-      "default_enabled": true
-    },
-    {
-      "id": "monkeycode-intl",
-      "label": "MonkeyCode 国际版",
-      "order": 21,
-      "default_enabled": true
-    },
-    {
-      "id": "qoder",
-      "label": "Qoder 中国版",
-      "order": 22,
-      "default_enabled": true
-    },
-    {
-      "id": "qoder-intl",
-      "label": "Qoder 国际版",
-      "order": 23,
-      "default_enabled": true
-    },
-    {
-      "id": "qwenwork",
-      "label": "千问办公 国内版",
-      "order": 24,
-      "default_enabled": true
-    },
-    {
-      "id": "qwenwork-intl",
-      "label": "千问办公 国际版",
-      "order": 25,
-      "default_enabled": true
-    },
-    {
-      "id": "trae",
-      "label": "Trae",
-      "order": 26,
-      "default_enabled": true
-    },
-    {
-      "id": "catpaw",
-      "label": "CatPaw",
-      "order": 25,
-      "default_enabled": true
-    },
-    {
-      "id": "accio",
-      "label": "Accio 国际版",
-      "order": 26,
-      "default_enabled": true
-    },
-    {
-      "id": "accio-cn",
-      "label": "Accio 国内版",
-      "order": 27,
-      "default_enabled": true
-    },
-    {
-      "id": "codearts",
-      "label": "CodeArts",
-      "order": 28,
-      "default_enabled": true
-    },
-    {
-      "id": "antigravity",
-      "label": "Antigravity",
-      "order": 29,
-      "default_enabled": true
-    },
-    {
-      "id": "doubaowork",
-      "label": "豆包工作",
-      "order": 30,
-      "default_enabled": true
-    },
-    {
-      "id": "kiro",
-      "label": "Kiro",
-      "order": 31,
-      "default_enabled": true
-    },
-    {
-      "id": "astudio",
-      "label": "AStudio",
-      "order": 32,
-      "default_enabled": true
     }
   ],
-  "icons": "assets",
-  "ui": [
-    {
-      "id": "checkin",
-      "title": "签到中心",
-      "icon": "checkin",
-      "entry": "checkin/index.html",
-      "group": "g-overview",
-      "order": 10
-    }
-  ],
+  "icons": "assets-extra",
   "entry": {
     "x86_64-pc-windows-msvc": "bin/agent2api-providers.exe",
     "x86_64-unknown-linux-gnu": "bin/agent2api-providers",
@@ -229,5 +27,5 @@
     "x86_64-apple-darwin": "bin/agent2api-providers",
     "aarch64-apple-darwin": "bin/agent2api-providers"
   },
-  "homepage": "https://github.com/ProvidersPlugin/Agent2Providers"
+  "homepage": "https://github.com/sunny-00001/Agent2Providers"
 }

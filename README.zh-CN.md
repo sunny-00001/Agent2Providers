@@ -2,6 +2,69 @@
 
 [English](README.md) · **简体中文**
 
+> ## ⚠️ 这是 `sunny-00001` 的自建 fork，不是上游官方仓库
+>
+> **它构建的是「追加包」`agent2api-providers-extra`，而不是官方的
+> `agent2api-providers`**。两者的区别：
+>
+> | | 官方包（上游发布） | 本仓库（追加包） |
+> |---|---|---|
+> | 包 id | `agent2api-providers` | `agent2api-providers-extra` |
+> | 内含家数 | 30+ 家（上游全部实现） | **2 家**：MiniMax Code 国内版 / 国际版 |
+> | 用途 | 桌面端与容器通用 | **只面向容器**（Docker 网关） |
+> | 平台 | 五平台矩阵 | 只有 Linux amd64 / arm64 |
+> | 签名 | 官方 Ed25519 签名 | **未签名**（网关会标黄，且不会被自动更新覆盖） |
+>
+> **两个包可以并存安装，不会互相覆盖。** 追加包用不同的 id，因此也不受网关
+> 「官方配套包最低版本」校验（那个校验只对 `agent2api-providers` /
+> `agent2api-web-providers` 生效）。
+>
+> 之所以要这个追加包：MiniMax Code（`agent.minimax.cn` / `agent.minimaxi.io`）
+> 在上游 v3.4.1 里**尚未**由官方包实现，而它是一条纯 HTTP、能在 Linux 容器里
+> 真正跑通的链路（设备码登录不需要本机回调端口）。见下面「本 fork 提供什么」。
+>
+> 上上游仓库：<https://github.com/ProvidersPlugin/Agent2Providers>
+
+---
+
+## 本 fork 提供什么
+
+### MiniMax Code（国内版 / 国际版）
+
+两个地区是**两家 provider**，因为它们在三处上是分开的（不是「同协议换域名」）：
+
+| | provider id | 推理 / 账户网关 | 授权服务器 |
+|---|---|---|---|
+| 国内版 | `minimax` | `agent.minimax.cn` | `account.minimax.cn` |
+| 国际版 | `minimax-intl` | `agent.minimax.io` | `account.minimax.io` |
+
+能力：推理转发（**Anthropic Messages** 协议）、令牌续期（会轮换 refresh token）、
+模型目录（免鉴权 + 内置兜底）、积分余额与逐份批次到期、七日签到。
+
+**容器部署的两条要点**（细节都在代码模块头里，这里给结论）：
+
+1. **登录用 OAuth 2.0 设备码（RFC 8628）+ PKCE** —— 授权在用户自己的浏览器里
+   完成，插件只轮询。所以**不需要本机回调端口**，容器里也能登录。
+2. **国际版账号必须配境外出口**。大陆直连 `agent.minimax.io` 会回 **307 地域
+   重定向**，而跟过去会落到国内集群并拿到 `401 invalid access token` ——
+   把「出口 IP 不对」伪装成「令牌失效」。插件**不跟随重定向**，如实报出 307
+   并提示「给这个账号配一个境外出口」；请照做，不要反复重新登录。
+
+**不支持**「导入本机客户端登录态」：客户端的 `~/.minimax/auth/` 在容器里读不到，
+而且写它会破坏客户端的登录代际（同目录 `auth-state.json` 的 `generation`
+计数器与 `auth.json` 必须相等），代价是用户被迫重新扫码。插件会明确回绝并指路
+「用浏览器登录」。
+
+### 怎么装
+
+下载本仓库 Actions 产物里的 `agent2api-providers-extra-0.1.0-<target>.zip`，
+然后在网关面板的「提供商插件」页用**从文件安装**上传它。装完在「添加账号」里
+应当能看到两家新的 MiniMax Code。
+
+---
+
+## 上游原文（下面是上游 README 的内容，描述的是官方包）
+
 **提供商增强**是 [Agent2API](https://github.com/aimod-cc/Agent2API) 的官方提供商插件，扩展账号登录与导入、模型调用、
 凭证续期、模型目录、余额查询和签到等能力，具体功能以各提供商的支持情况为准。
 网关把插件作为独立进程加载，因此某个提供商出故障只会让那个进程挂掉，
@@ -10,6 +73,7 @@
 本仓库同时承载网关编译时所依赖的两个 crate：`agent2api-provider-protocol`
 （线上类型）和 `agent2api-provider-sdk`（`Provider` trait 及其 serve 循环）。
 网关通过 tag 引用本仓库。
+
 
 ## 支持的提供商
 

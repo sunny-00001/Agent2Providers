@@ -20,7 +20,7 @@
         "pt-BR": "O login usa o código de dispositivo OAuth 2.0 oficial (RFC 8628) com PKCE: confirme o código de dispositivo na página de autorização que abrir e o plugin faz polling no intervalo exigido pelo upstream para coletar a conta. Não é necessária porta de callback local, portanto funciona dentro de um contêiner. As duas regiões são dois provedores separados (a versão continental usa agent.minimax.cn; a internacional usa agent.minimax.io) e seus tokens não são intercambiáveis. O site internacional exige um IP de saída no exterior: conectar-se a agent.minimax.io a partir da China continental retorna um redirecionamento geográfico 307, que o plugin deliberadamente não segue — segui-lo chega ao cluster continental e resulta em 401, relatando incorretamente um problema de saída como token expirado. Configure um proxy no exterior para contas internacionais. A inferência usa o protocolo Anthropic Messages. O saldo é baseado em créditos (cada lote expira 30 dias após a concessão e os vencimentos por lote constam no extrato de créditos). O check-in paga 4000 créditos por ciclo de sete dias e resgatar duas vezes no mesmo dia é idempotente."
       }]
     },
-    "minimax": {
+    "minimax-intl": {
       "capabilities": { "claims": { "status": "not_applicable" } },
       "notes": [{
         "zh-CN": "登录走官方的 OAuth 2.0 设备码（RFC 8628）+ PKCE：在打开的授权页里确认设备码即可，插件按上游要求的间隔轮询收下账号 —— 不需要本机回调端口，因此在容器里也能用。两个地区是两家提供商（国内版打 agent.minimax.cn、国际版打 agent.minimax.io），令牌互不通用。国际站的出口 IP 必须在境外：大陆直连 agent.minimax.io 会回 307 地域重定向，插件不跟随它（跟过去会拿到国内集群的 401，把「出口不对」误报成「令牌失效」）—— 所以国际版请给这个账号配一个境外代理。推理走 Anthropic Messages 协议；余额是积分制（每批发放日 + 30 天到期，逐份到期时刻在积分明细里），签到七天一轮共 4000 积分且当天重复领是幂等的。",
